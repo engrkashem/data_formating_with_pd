@@ -1,44 +1,61 @@
 import pandas as pd
 
 # Load the Excel file
-file_path = "./data/Function_Feedback.xlsx"
+file_path = "./data/11_Supervisors_feedback_focus.xlsx"
 xls = pd.ExcelFile(file_path)
 
 # Read the first sheet
-sheet1 = pd.read_excel(xls, sheet_name=xls.sheet_names[0])
+sheet2 = pd.read_excel(xls, sheet_name=xls.sheet_names[1])
 
-# Select relevant columns and forward-fill supervisor names
-sheet1_cleaned = sheet1.iloc[:, :6]  # Taking only necessary columns
-# Forward fill Supervisors to handle NaN values in merged rows
-sheet1_cleaned['Supervisors'] = sheet1_cleaned['Supervisors'].fillna(method='ffill')
+# Clean column names by replacing non-breaking spaces and extra spaces
+sheet2.columns = sheet2.columns.str.replace("\xa0", " ", regex=True).str.strip()
+sheet2.columns = sheet2.columns.str.replace("\s+", " ", regex=True)
 
-# Reshape data to long format
-formatted_sheet1 = sheet1_cleaned.melt(
-    id_vars=['Supervisors', 'Feedback Function'], 
-    value_vars=['1st Draft', '2nd Draft', '3rd Draft'], 
-    var_name='Drafts', 
-    value_name='Total Feedback'
-)
+# Remove empty or improperly formatted categories
+sheet2 = sheet2[sheet2['Feedback Focus'].str.strip() != ""]  # Removes blank categories
+sheet2 = sheet2.dropna(subset=['Feedback Focus'])  # Drops NaN values in the category column
 
-# Cleaning up draft column names
-formatted_sheet1['Drafts'] = formatted_sheet1['Drafts'].str.replace("\xa0", " ")  # Remove non-breaking spaces
+# Ensure 'Number of Feedback' column is numeric
+sheet2['Number of Feedback'] = pd.to_numeric(sheet2['Number of Feedback'], errors='coerce').fillna(0)
 
-# Define custom order for sorting
-draft_order = ["1st Draft", "2nd Draft", "3rd Draft"]
-formatted_sheet1["Drafts"] = pd.Categorical(formatted_sheet1["Drafts"], categories=draft_order, ordered=True)
+# Aggregate data by 'Feedback Focus' (Category), summing 'Number of Feedback'
+aggregated_data = sheet2.groupby('Feedback Focus')['Number of Feedback'].agg(['sum', 'mean', 'std']).reset_index()
 
-# Extract numeric part from Supervisors for proper sorting
-formatted_sheet1["Supervisors_Numeric"] = (
-    formatted_sheet1["Supervisors"].str.extract("(\d+)").astype(float)
-)
+# Rename columns to match the required format
+aggregated_data.columns = ['Category', 'AF', 'M', 'SD']
 
-# Sort by extracted numeric Supervisors and Drafts
-formatted_sheet1_sorted = formatted_sheet1.sort_values(
-    by=["Supervisors_Numeric", "Drafts"]
-).drop(columns=["Supervisors_Numeric"])  # Drop helper column after sorting
+# Compute total absolute frequency
+af_total = aggregated_data['AF'].sum()
 
+# Compute Relative Frequency (RF) as a percentage
+aggregated_data['RF'] = (aggregated_data['AF'] / af_total) * 100
+
+# Round values for better readability
+aggregated_data = aggregated_data.round(2)
+
+# Define column order explicitly
+column_order = ['Category', 'AF', 'RF', 'M', 'SD']
+
+# Reorder the DataFrame to maintain correct column order
+aggregated_data = aggregated_data[column_order]
+
+# Create the total row as a DataFrame with column order
+total_row = pd.DataFrame([[  
+    'Total',
+    round(aggregated_data['AF'].sum(), 2),
+    100.00,
+    round(aggregated_data['M'].mean(), 2),
+    round(aggregated_data['SD'].mean(), 2)
+]], columns=column_order)
+
+# Append total row and enforce column order
+final_table = pd.concat([aggregated_data, total_row], ignore_index=True)[column_order]
+
+
+
+print(final_table)
 
 # Save to Excel
-output_file = "./formatted_FunctionFeedback_output.xlsx"
-formatted_sheet1_sorted.to_excel(output_file, index=False)
+output_file = "./statistics_output.xlsx"
+final_table.to_excel(output_file, index=False)
 
