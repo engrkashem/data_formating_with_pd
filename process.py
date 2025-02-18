@@ -5,7 +5,7 @@ file_path = "./data/Function_Feedback.xlsx"
 xls = pd.ExcelFile(file_path)
 
 # Read the first sheet
-sheet2 = pd.read_excel(xls, sheet_name=xls.sheet_names[2])
+sheet2 = pd.read_excel(xls, sheet_name=xls.sheet_names[1])
 
 
 # Clean column names by replacing non-breaking spaces and extra spaces
@@ -13,18 +13,18 @@ sheet2.columns = sheet2.columns.str.replace("\xa0", " ", regex=True).str.strip()
 sheet2.columns = sheet2.columns.str.replace("\s+", " ", regex=True)
 
 # Remove empty or improperly formatted categories
-sheet2 = sheet2[sheet2['Feedback Function'].str.strip() != ""]  # Removes blank categories
-sheet2 = sheet2.dropna(subset=['Feedback Function'])  # Drops NaN values in the category column
+sheet2 = sheet2[sheet2['Direct vs. Indirect'].str.strip() != ""]  # Removes blank categories
+sheet2 = sheet2.dropna(subset=['Direct vs. Indirect'])  # Drops NaN values in the category column
 
 # Ensure 'Total Feedback' column is numeric
 sheet2['Total Feedback'] = pd.to_numeric(sheet2['Total Feedback'], errors='coerce').fillna(0)
 
 # Aggregate data by 'Supervisors' and 'Feedback Function' (Category), summing 'Total Feedback'
-aggregated_data = sheet2.groupby(['Feedback Function', 'Drafts'])['Total Feedback'].agg(['sum', 'mean', 'std']).reset_index()
+aggregated_data = sheet2.groupby(['Direct vs. Indirect', 'Drafts'])['Total Feedback'].agg(['sum', 'mean', 'std']).reset_index()
 
 # Rename columns to match the required format
 # aggregated_data.columns = ['Supervisors', 'AF', 'M', 'SD']
-aggregated_data.columns = ['Feedback Function', 'Drafts', 'AF', 'M', 'SD']
+aggregated_data.columns = ['Direct vs. Indirect', 'Drafts', 'AF', 'M', 'SD']
 
 # Compute total absolute frequency
 af_total = aggregated_data['AF'].sum()
@@ -36,7 +36,7 @@ aggregated_data['RF'] = (aggregated_data['AF'] / af_total) * 100
 aggregated_data = aggregated_data.round(2)
 
 # Define column order explicitly
-column_order = ['Feedback Function', 'Drafts',  'AF', 'RF', 'M', 'SD']
+column_order = ['Direct vs. Indirect', 'Drafts',  'AF', 'RF', 'M', 'SD']
 
 # Reorder the DataFrame to maintain correct column order
 aggregated_data = aggregated_data[column_order]
@@ -64,6 +64,6 @@ final_table = pd.concat([aggregated_data, total_row], ignore_index=True)[column_
 print(final_table)
 
 # Save to Excel
-output_file = "./output/6_Function_output.xlsx"
+output_file = "./output/11_directVsIndirect_output.xlsx"
 final_table.to_excel(output_file, index=False)
 
